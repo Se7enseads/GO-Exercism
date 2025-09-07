@@ -15,23 +15,39 @@ jobs:
       checks: read
 
     steps:
-      - name: Check PR author
-        if: github.actor == 'exercism-solutions-syncer[bot]'
+      - name: Check PR author and details
         run: |
-          echo "PR created by Exercism bot: ${{ github.actor }}"
+          echo "PR created by: ${{ github.actor }}"
           echo "PR number: ${{ github.event.number }}"
           echo "PR title: ${{ github.event.pull_request.title }}"
+          echo "PR author ID: ${{ github.event.pull_request.user.id }}"
+          echo "Repository: ${{ github.repository }}"
+
+      - name: Verify Exercism bot
+        run: |
+          if [[ "${{ github.actor }}" == "exercism-solutions-syncer[bot]" ]] && [[ "${{ github.event.pull_request.user.id }}" == "211797793" ]]; then
+            echo "✅ Confirmed: This PR is from the Exercism solutions syncer bot"
+            echo "EXERCISM_BOT=true" >> $GITHUB_ENV
+          else
+            echo "❌ This PR is not from the Exercism bot"
+            echo "EXERCISM_BOT=false" >> $GITHUB_ENV
+          fi
 
       - name: Approve PR
-        if: github.actor == 'exercism-solutions-syncer[bot]'
+        if: env.EXERCISM_BOT == 'true'
         run: |
-          gh pr review ${{ github.event.number }} --approve --body "Auto-approved: Exercism solutions sync"
+          gh pr review ${{ github.event.number }} --approve --body "🤖 Auto-approved: Exercism solutions sync from verified bot"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge
-        if: github.actor == 'exercism-solutions-syncer[bot]'
+        if: env.EXERCISM_BOT == 'true'
         run: |
-          gh pr merge ${{ github.event.number }} --auto --squash
+          gh pr merge ${{ github.event.number }} --auto --squash --delete-branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log completion
+        if: env.EXERCISM_BOT == 'true'
+        run: |
+          echo "✅ Successfully set up auto-merge for Exercism bot PR #${{ github.event.number }}"
